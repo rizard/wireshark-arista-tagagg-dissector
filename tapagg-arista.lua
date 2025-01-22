@@ -107,9 +107,15 @@ function TapaggTimestamp.dissector(buf, packet, tree)
     -- compensate 48b timestamp seconds with local time upper 16b
     if sec_len == 2 then
         local packet_seconds, packet_ns = math.modf(packet.abs_ts)
-        packet_seconds = packet_seconds & 0xFFFF0000
-        packet_seconds = packet_seconds | seconds
-        seconds = packet_seconds
+        if _VERSION:find("Lua 5.1") or --might have backported bit32 support
+           _VERSION:find("Lua 5.2") then  --has native bit32 support
+            local epoch_seconds = bit32.replace(packet_seconds, seconds, 0, 16)
+            seconds = epoch_seconds
+        else --assume a more modern lua version
+            packet_seconds = packet_seconds & 0xFFFF0000
+            packet_seconds = packet_seconds | seconds
+            seconds = packet_seconds
+        end
     end
     local time = NSTime.new(seconds, nanoseconds)
     buf_len = sec_len + 4
